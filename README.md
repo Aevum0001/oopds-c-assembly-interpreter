@@ -8,13 +8,13 @@ The interpreter reads a custom .asm assembly language file, parses the instructi
 
 Team Members (Group TTXX_GXX)
 
-Member 1: [Name] (ID: [Name]) - Data Structures & OOP Core
+Member 1: [Muhammad Muhyideen bin Barakath Ali] (ID: [253UC243K8]) - Data Structures & OOP Core
 
-Member 2: [Name] (ID: [ID]) - CPU, Memory & Runner
+Member 2: [Shaarvin] (ID: [253UC243XH]) - CPU, Memory & Runner
 
-Member 3: [Name] (ID: [ID]) - Core Instructions & Flags
+Member 3: [Roshan A/L Sahadevan] (ID: [253UC243CY]) - Core Instructions & Flags
 
-Member 4: [Name] (ID: [ID]) - Advanced Instructions & Demo Orchestration
+Member 4: [Nimalen A/L Ramakrishnan] (ID: [253UC242QD]) - Advanced Instructions & Demo Orchestration
 
 Virtual Machine Architecture
 
