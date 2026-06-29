@@ -1,9 +1,8 @@
 // ============================================================
 // CCP6124 Object-oriented Programming and Data Structures
 // Trimester 2610 - Virtual Machine Project
-// FILE: TT01_G01.cpp (Member 1 Foundation)
+// FILE: TT01_G01.cpp
 // DESCRIPTION: Custom Data Structures + Register Class Hierarchy
-// Author: Muhammad Muhyideen [Insert ID] - Team ALTF4
 // ============================================================
 
 #include <iostream>
