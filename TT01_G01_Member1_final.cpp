@@ -2,12 +2,12 @@
 // CCP6124 Object-oriented Programming and Data Structures
 // Trimester 2610 - Virtual Machine Project
 // FILE: TT01_G01.cpp
-// DESCRIPTION: Custom Data Structures + Register Class Hierarchy
+// DESCRIPTION: Complete VM Core (Member 1 + Member 2 Integrated)
 // ============================================================
 
 #include <iostream>
 #include <string>   // Required for string tests to compile
-#include <cstdlib>  // Required for exit(1) on stack crash
+#include <cstdlib>  // Required for exit(1) on stack crash / atoi
 
 using namespace std;
 
@@ -458,68 +458,253 @@ public:
 
 
 // ============================================================
-//  SECTION 5: Quick Test / Demo
+//  SECTION 5: Memory Class (Member 2 Implementation)
 // ============================================================
 
-// Author: Muhammad Muhyideen
-// Prints a separator line for test output readability.
-void printSeparator(const char* title) {
-    cout << "\n==============================" << endl;
-    cout << "  TEST: " << title << endl;
-    cout << "==============================" << endl;
-}
+// Author: Shaarvin
+// Represents a 256-byte RAM system for the 8-bit Virtual Machine.
+class Memory {
+private:
+    static const int RAM_SIZE = 256;
+    signed char ram[RAM_SIZE];
 
-// Author: Roshan
-// Tests MyVector with ASM instruction strings.
-void testMyVectorStrings() {
-    printSeparator("MyVector<string> (ASM lines)");
-    MyVector<string> lines;
-    lines.push_back("MOV R1, 5");
-    lines.push_back("ADD R1, R2");
-    cout << "Stored " << lines.size() << " instructions:" << endl;
-    for (int i = 0; i < lines.size(); i++) {
-        cout << "  [" << i << "] " << lines.get(i) << endl;
+public:
+    // Author: Shaarvin
+    // Constructor: Zeroes out all RAM addresses.
+    Memory() {
+        for (int i = 0; i < RAM_SIZE; i++) {
+            ram[i] = 0;
+        }
     }
-}
 
-// Author: Muhammad Muhyideen
-// Tests MyStack push, pop, and peek operations.
-void testMyStack() {
-    printSeparator("MyStack");
-    MyStack s;
-    s.push(10);
-    s.push(20);
-    cout << "Peek: " << (int)s.peek() << endl;
-    cout << "Pop: "  << (int)s.pop()  << endl;
-    cout << "Size after pop: " << s.size() << endl;
-}
+    // Author: Shaarvin
+    // Reads from memory address with boundary safety.
+    signed char read(int address) const {
+        if (address < 0 || address >= RAM_SIZE) {
+            cout << "[Memory ERROR] Read access violation at address " << address << "." << endl;
+            return 0;
+        }
+        return ram[address];
+    }
 
-// Author: Muhammad Muhyideen
-// Tests Register hierarchy: clamping and flag enforcement.
-void testRegisters() {
-    printSeparator("Register Hierarchy");
-    GeneralRegister r0("R0");
-    r0.setValue(200);  // should clamp to 127
-    cout << r0.getName() << " after setValue(200) [clamped]: "
-         << (int)r0.getValue() << endl;
+    // Author: Shaarvin
+    // Writes to memory address with boundary safety.
+    void write(int address, signed char value) {
+        if (address < 0 || address >= RAM_SIZE) {
+            cout << "[Memory ERROR] Write access violation at address " << address << "." << endl;
+            return;
+        }
+        ram[address] = value;
+    }
 
-    FlagRegister cf("CF");
-    cf.setValue(99);   // should set to 1
-    cout << cf.getName() << " after setValue(99): "
-         << (int)cf.getValue() << endl;
-}
+    // Author: Shaarvin
+    // Resets entire memory space.
+    void reset() {
+        for (int i = 0; i < RAM_SIZE; i++) ram[i] = 0;
+    }
+};
 
-// Author: Muhammad Muhyideen
-// Entry point: runs all unit tests.
+
+// ============================================================
+//  SECTION 6: CPU Class (Member 2 Implementation)
+// ============================================================
+
+// Author: Shaarvin
+// Core Central Processing Unit that manages registers, stack, memory, and pointers.
+class CPU {
+public:
+    GeneralRegister R[8];         // Hardware collection of R0 - R7
+    FlagRegister CF, OF, UF, ZF;   // Status flags
+    MyStack stack;                // Hardware call/data stack
+    Memory memory;                // Integrated execution memory
+    int PC;                       // Program Counter tracking code lines
+
+    // Author: Shaarvin
+    // Constructor: Explicitly names and initializes registers and system states.
+    CPU() : R{{"R0"}, {"R1"}, {"R2"}, {"R3"}, {"R4"}, {"R5"}, {"R6"}, {"R7"}},
+            CF("CF"), OF("OF"), UF("UF"), ZF("ZF") {
+        PC = 0;
+    }
+
+    // Author: Shaarvin
+    // Performs a full system hardware state reset.
+    void resetHardware() {
+        PC = 0;
+        for (int i = 0; i < 8; i++) R[i].reset();
+        CF.reset();
+        OF.reset();
+        UF.reset();
+        ZF.reset();
+        stack.reset();
+        memory.reset();
+    }
+
+    // Author: Shaarvin
+    // Output Formatting: Generates a complete status block snapshot of the machine state.
+    void printStateDump(const string& currentInstruction) const {
+        cout << "\n========================================================================\n";
+        cout << " STEP EXECUTED: " << (currentInstruction.empty() ? "[HALT/START]" : currentInstruction) << "\n";
+        cout << "========================================================================\n";
+        
+        // Pointers
+        cout << " System Pointers ->  PC: " << PC 
+             << " | SI (Stack Index): " << stack.getStackIndex() << "\n\n";
+
+        // Registers
+        cout << " Registers       ->  ";
+        for (int i = 0; i < 8; i++) {
+            cout << R[i].getName() << ": " << (int)R[i].getValue() << "    ";
+            if (i == 3) cout << "\n                     ";
+        }
+        cout << "\n\n";
+
+        // Flags
+        cout << " Status Flags    ->  CF: " << CF.getFlag() 
+             << " | OF: " << OF.getFlag() 
+             << " | UF: " << UF.getFlag() 
+             << " | ZF: " << ZF.getFlag() << "\n\n";
+
+        // Stack Dump Matrix
+        cout << " Stack Matrix    ->  [Slot]  ";
+        for (int i = 0; i < 8; i++) cout << "[" << i << "]  ";
+        cout << "\n                     [Val]   ";
+        for (int i = 0; i < 8; i++) cout << " " << (int)stack.getAt(i) << "   ";
+        cout << "\n========================================================================\n";
+    }
+};
+
+
+// ============================================================
+//  SECTION 7: Runner Engine Class (Member 2 Implementation)
+// ============================================================
+
+// Author: Shaarvin
+// Component handling lexical isolation of instructions and runtime orchestration.
+class Runner {
+private:
+    MyVector<string> instructionRegistry; // Holds lines of read code
+
+    // Author: Shaarvin
+    // Helper processing tool to strip spaces and commas, isolating words.
+    string cleanToken(const string& s) {
+        string clean = "";
+        for (char c : s) {
+            if (c != ',' && c != ' ' && c != '\t' && c != '\r' && c != '\n') {
+                clean += c;
+            }
+        }
+        return clean;
+    }
+
+public:
+    // Author: Shaarvin
+    // Manually loads an assembly code block string collection into execution vectors.
+    void loadProgramLine(const string& asmLine) {
+        if (!asmLine.empty()) {
+            instructionRegistry.push_back(asmLine);
+        }
+    }
+
+    // Author: Shaarvin
+    // Lexical analysis loop parsing strings into manageable Opcode and Operand tokens.
+    void parseInstruction(const string& rawLine, string& opcode, string& op1, string& op2) {
+        opcode = op1 = op2 = "";
+        int i = 0;
+        int n = rawLine.length();
+
+        // Skip leading whitespace
+        while (i < n && (rawLine[i] == ' ' || rawLine[i] == '\t')) i++;
+
+        // Read Opcode
+        while (i < n && rawLine[i] != ' ' && rawLine[i] != '\t' && rawLine[i] != ',') {
+            opcode += rawLine[i];
+            i++;
+        }
+
+        // Find Operand 1
+        while (i < n && (rawLine[i] == ' ' || rawLine[i] == '\t' || rawLine[i] == ',')) i++;
+        while (i < n && rawLine[i] != ' ' && rawLine[i] != '\t' && rawLine[i] != ',') {
+            op1 += rawLine[i];
+            i++;
+        }
+
+        // Find Operand 2
+        while (i < n && (rawLine[i] == ' ' || rawLine[i] == '\t' || rawLine[i] == ',')) i++;
+        while (i < n && rawLine[i] != ' ' && rawLine[i] != '\t' && rawLine[i] != ',') {
+            op2 += rawLine[i];
+            i++;
+        }
+
+        opcode = cleanToken(opcode);
+        op1 = cleanToken(op1);
+        op2 = cleanToken(op2);
+    }
+
+    // Author: Shaarvin
+    // Central Runtime Fetch-Decode Loop orchestrating with underlying project logic blocks.
+    void runSimulation(CPU& cpu) {
+        cout << "\n>>> CRANKING VIRTUAL MACHINE ENGINE CORRIDORS... <<<\n";
+        cpu.printStateDump("SYSTEM BOOT INITIALIZED");
+
+        while (cpu.PC < instructionRegistry.size()) {
+            string currentLine = instructionRegistry.get(cpu.PC);
+            string opcode, op1, op2;
+            
+            parseInstruction(currentLine, opcode, op1, op2);
+
+            // Increment program counter ahead of code execution
+            cpu.PC++;
+
+            // Mock Execution hooks - these will connect directly to Member 3 and Member 4's classes
+            if (opcode == "MOV" || opcode == "mov") {
+                // Member 3 will complete the calculation logic here.
+                // Simulating execution effect on hardware for proof of architecture:
+                if (!op1.empty() && op1[0] == 'R') {
+                    int regIdx = op1[1] - '0';
+                    if (regIdx >= 0 && regIdx < 8) {
+                        cpu.R[regIdx].setValue(atoi(op2.c_str()));
+                    }
+                }
+            } 
+            else if (opcode == "PUSH" || opcode == "push") {
+                // Member 4 execution link simulation:
+                cpu.stack.push(atoi(op1.c_str()));
+            }
+
+            // Print the resulting hardware profile dump
+            cpu.printStateDump(currentLine);
+        }
+        cout << "\n>>> SIMULATION END REACHED SAFELY <<<\n";
+    }
+
+    // Author: Shaarvin
+    void clearProgram() {
+        instructionRegistry.clear();
+    }
+};
+
+
+// ============================================================
+//  SECTION 8: Main Driver Verification Loop
+// ============================================================
+
 int main() {
-    cout << "========================================" << endl;
-    cout << " Member 1 Foundation - Unit Tests"       << endl;
-    cout << "========================================" << endl;
+    cout << "====================================================" << endl;
+    cout << "   Combined Architecture Verification Driver"        << endl;
+    cout << "====================================================" << endl;
 
-    testMyVectorStrings();
-    testMyStack();
-    testRegisters();
+    // 1. Initialize CPU and Runner units (Member 2 instances)
+    CPU virtualCPU;
+    Runner structuralRunner;
 
-    cout << "\n[All tests complete]" << endl;
+    // 2. Load basic validation script to test architecture parsing & structural logic
+    structuralRunner.loadProgramLine("MOV R0, 45");
+    structuralRunner.loadProgramLine("MOV R4, -120");
+    structuralRunner.loadProgramLine("PUSH 77");
+    structuralRunner.loadProgramLine("MOV R7, 127");
+
+    // 3. Kick off runtime cycle process
+    structuralRunner.runSimulation(virtualCPU);
+
     return 0;
 }
